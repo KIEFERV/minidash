@@ -33,6 +33,14 @@ class OrderCreate(BaseModel):
     restaurant_id: int
     address: Address
     items: list[OrderItemIn] = Field(min_length=1)
+    scheduled_for: str | None = Field(
+        default=None,
+        description=(
+            "Optional delivery time, ISO 8601 (server local time, or include an offset/Z). "
+            "Must be 45 minutes to 7 days from now and within the restaurant's opening hours."
+        ),
+        examples=["2026-11-02T18:30:00"],
+    )
 
 
 class OrderItemOut(BaseModel):
@@ -49,6 +57,8 @@ class OrderOut(BaseModel):
     total_cents: int
     address: str
     created_at: str
+    scheduled_for: str | None = None
+    released_at: str | None = None
     items: list[OrderItemOut]
 
 

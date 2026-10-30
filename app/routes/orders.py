@@ -12,6 +12,7 @@ def create_order(payload: OrderCreate, service: OrderServiceDep):
         restaurant_id=payload.restaurant_id,
         address=payload.address,
         items=[(i.menu_item_id, i.quantity) for i in payload.items],
+        scheduled_for=payload.scheduled_for,
     )
 
 

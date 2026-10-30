@@ -22,9 +22,9 @@ def get_db(request: Request) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
-def get_now() -> datetime:
-    """Current server-local time. Tests override this dependency."""
-    return datetime.now()
+def get_now(request: Request) -> datetime:
+    """Current time from the app's injected clock (see create_app)."""
+    return request.app.state.clock()
 
 
 DbDep = Annotated[sqlite3.Connection, Depends(get_db)]

@@ -37,6 +37,7 @@ class ASGIClient:
         try:
             self._loop.run_until_complete(self._shutdown())
         finally:
+            self._loop.run_until_complete(self._loop.shutdown_default_executor())
             self._loop.close()
 
     async def _startup(self):

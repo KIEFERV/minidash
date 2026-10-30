@@ -2,7 +2,6 @@ from datetime import datetime
 
 import pytest
 
-from app.dependencies import get_now
 from app.main import create_app
 from tests.asgi_client import ASGIClient
 
@@ -11,7 +10,7 @@ NOON = datetime(2026, 10, 28, 12, 0, 0)
 
 
 class Clock:
-    """Mutable fake clock. Tests change ``clock.now`` to simulate other times."""
+    """Mutable fake clock. Tests change ``clock.now`` to move time."""
 
     def __init__(self):
         self.now = NOON
@@ -23,10 +22,18 @@ def clock() -> Clock:
 
 
 @pytest.fixture
-def client(tmp_path, clock):
-    """A client on a fresh, freshly seeded database in a temp directory."""
-    app = create_app(str(tmp_path / "test.db"))
-    app.dependency_overrides[get_now] = lambda: clock.now
+def db_path(tmp_path) -> str:
+    return str(tmp_path / "test.db")
+
+
+@pytest.fixture
+def client(db_path, clock):
+    """A client on a fresh, freshly seeded database, driven by the fake clock.
+
+    The background release job is off; tests move the clock and the app releases
+    due orders when an order is read or updated (see test_release.py for the job).
+    """
+    app = create_app(db_path, clock=lambda: clock.now, release_interval=None)
     with ASGIClient(app) as c:
         yield c
 

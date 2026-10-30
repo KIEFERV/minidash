@@ -26,7 +26,10 @@ CREATE TABLE IF NOT EXISTS orders (
     status        TEXT    NOT NULL,
     total_cents   INTEGER NOT NULL CHECK (total_cents >= 0),
     address       TEXT    NOT NULL,
-    created_at    TEXT    NOT NULL      -- ISO 8601, server local time
+    created_at    TEXT    NOT NULL,     -- ISO 8601, server local time
+    scheduled_for TEXT,                 -- delivery time (scheduled orders only)
+    release_at    TEXT,                 -- when it is handed to the restaurant
+    released_at   TEXT                  -- when that actually happened
 );
 
 -- unit_price_cents is a snapshot of the menu price at order time, so later
@@ -43,6 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_menu_items_restaurant ON menu_items(restaurant_id
 CREATE INDEX IF NOT EXISTS idx_order_items_order     ON order_items(order_id);
 """
 
+NEW_ORDER_COLUMNS = ("scheduled_for", "release_at", "released_at")
+
 
 def connect(db_path: str) -> sqlite3.Connection:
     # check_same_thread=False: FastAPI may run a request's dependency and its
@@ -54,11 +59,26 @@ def connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring a database created by an earlier version up to date."""
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(orders)")}
+    with conn:
+        for column in NEW_ORDER_COLUMNS:
+            if column not in existing:
+                conn.execute(f"ALTER TABLE orders ADD COLUMN {column} TEXT")
+        # The initial status used to be called "pending".
+        conn.execute("UPDATE orders SET status = 'placed' WHERE status = 'pending'")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_orders_release ON orders(status, release_at)"
+        )
+
+
 def init_db(db_path: str) -> None:
-    """Create tables if missing and seed demo data into an empty database."""
+    """Create tables if missing, migrate old ones, seed an empty database."""
     conn = connect(db_path)
     try:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         if conn.execute("SELECT COUNT(*) FROM restaurants").fetchone()[0] == 0:
             seed(conn)
     finally:

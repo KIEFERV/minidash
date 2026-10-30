@@ -28,7 +28,7 @@ def napoli_menu(client, napoli):
 
 @pytest.fixture
 def order(client, napoli, napoli_menu):
-    """A freshly placed (pending) order."""
+    """A freshly placed (placed) order."""
     response = place_order(client, napoli, [{"menu_item_id": napoli_menu[0]["id"], "quantity": 1}])
     assert response.status_code == 201
     return response.json()
@@ -49,7 +49,7 @@ def test_create_order_returns_201_with_computed_total(client, napoli, napoli_men
 
     assert response.status_code == 201
     body = response.json()
-    assert body["status"] == "pending"
+    assert body["status"] == "placed"
     assert body["restaurant_id"] == napoli["id"]
     assert body["address"] == ADDRESS
     assert body["total_cents"] == 2 * first["price_cents"] + second["price_cents"]
@@ -197,7 +197,7 @@ def test_patch_status_walks_the_full_lifecycle(client, order):
     assert fetched["items"] == order["items"]
 
 
-def test_patch_status_can_cancel_a_pending_order(client, order):
+def test_patch_status_can_cancel_a_placed_order(client, order):
     response = set_status(client, order["id"], "cancelled")
 
     assert response.status_code == 200
@@ -208,7 +208,7 @@ def test_patch_status_cannot_skip_steps(client, order):
     response = set_status(client, order["id"], "delivered")
 
     assert response.status_code == 409
-    assert client.get(f"/orders/{order['id']}").json()["status"] == "pending"
+    assert client.get(f"/orders/{order['id']}").json()["status"] == "placed"
 
 
 def test_patch_status_cannot_cancel_once_preparing(client, order):
@@ -225,7 +225,7 @@ def test_patch_status_terminal_states_cannot_change(client, order):
 
 
 def test_patch_status_to_same_status_returns_409(client, order):
-    assert set_status(client, order["id"], "pending").status_code == 409
+    assert set_status(client, order["id"], "placed").status_code == 409
 
 
 def test_patch_status_unknown_status_value_returns_422(client, order):
